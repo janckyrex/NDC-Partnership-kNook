@@ -5,6 +5,7 @@ library(dplyr)
 library(stringr)
 library(janitor)
 
+
 #read the kNook excel
 read_knook_requests <- function(xlfilepath) {
   #'Import Knook excel file into R, coerce to a Data Frame
@@ -25,7 +26,8 @@ read_knook_requests <- function(xlfilepath) {
   KnookReqdf$end_date <- as.Date(KnookReqdf$end_date, format = "%m/%d/%Y")
   KnookReqdf$date_last_updated <- as.Date(KnookReqdf$date_last_updated, format = "%m/%d/%Y")
   
-  KnookReqdf$country <- toString(KnookReqdf$country)
+  #seems to be giving an error wehere all countries appear in each row
+  #KnookReqdf$country <- toString(KnookReqdf$country)
   
   #remove parenthesis from determined columns (not text heavy columns like outcome, output, etc.)
   #first parenthesis
@@ -34,12 +36,15 @@ read_knook_requests <- function(xlfilepath) {
   KnookReqdf$activity_types <- str_replace_all(KnookReqdf$activity_types, "[//(]" ,"")
   KnookReqdf$ip_d_ps_that_have_indicated_confirmed_support <- str_replace_all(KnookReqdf$ip_d_ps_that_have_indicated_confirmed_support,"[//(]" ,"")
   KnookReqdf$ip_d_ps_that_have_indicated_indicative_support <- str_replace_all(KnookReqdf$ip_d_ps_that_have_indicated_indicative_support, "[//(]" ,"")
+  KnookReqdf$lead_domestic_agency <- str_replace_all(KnookReqdf$lead_domestic_agency, "[//(]" ,"")
   #second parenthesis
   KnookReqdf$country <- str_replace_all(KnookReqdf$country, "[//)]" ,"")
   KnookReqdf$key_topics_covered <- str_replace_all(KnookReqdf$key_topics_covered, "[//)]" ,"")
   KnookReqdf$activity_types <- str_replace_all(KnookReqdf$activity_types, "[//)]" ,"")
   KnookReqdf$ip_d_ps_that_have_indicated_confirmed_support <- str_replace_all(KnookReqdf$ip_d_ps_that_have_indicated_confirmed_support,"[//)]", "")
   KnookReqdf$ip_d_ps_that_have_indicated_indicative_support <- str_replace_all(KnookReqdf$ip_d_ps_that_have_indicated_indicative_support, "[//)]", "")
+  KnookReqdf$lead_domestic_agency <- str_replace_all(KnookReqdf$lead_domestic_agency, "[//)]" ,"")
+  
   #also + signs because ugh
   KnookReqdf$ip_d_ps_that_have_indicated_confirmed_support <- str_replace_all(KnookReqdf$ip_d_ps_that_have_indicated_confirmed_support,"[+]", "")
   KnookReqdf$ip_d_ps_that_have_indicated_indicative_support <- str_replace_all(KnookReqdf$ip_d_ps_that_have_indicated_indicative_support, "[+]", "")
@@ -204,6 +209,39 @@ focus_area_analysis_df <- function(KnookReqdf){
   
   return(focus_area_df_list)
 }
+lead_agency_MOF_df <- function(KnookReqdf){
+  #agency_list_not_split <- list(KnookReqdf$lead_domestic_agency)
+  #agency_list_not_split <- agency_list_not_split[[1]]
+  #agency_list_not_split <- agency_list_not_split[!is.na(agency_list_not_split)]
+  #agency_names_list <- list()
+  #agency_names_list <- sort(unique(unlist(strsplit(agency_list_not_split, ", "))))
+  #lead_agency_df_list <- list()
+  
+  agency_names_list <- list("Ministry of Finance",
+                            "Min Finanças",
+                            "Ministry of finance",
+                            "Ministère des finances",
+                            "Ministry of the Economy and Finance",
+                            "Ministry of Economy and Finance",
+                            "MoF",
+                            "MoEF",
+                            "MEF")
+  lead_agency_df_list <- list()
+  
+  total_requests <- nrow(KnookReqdf)
+  
+  for (partner in agency_names_list) {
+    filtered_df <- KnookReqdf %>%
+      filter(str_detect(lead_domestic_agency, partner))
+    lead_agency_df_list[[partner]] <- filtered_df
+    cat("Number of requests from", partner,":", nrow(lead_agency_df_list[[partner]]), "\n")
+    cat(nrow(filtered_df)/total_requests*100, "% of all requests \n")
+  }
+  #names(lead_agency_df_list) <- agency_names_list
+  MOF_agency_one_df <- do.call("rbind", lead_agency_df_list)
+  
+  return(MOF_agency_one_df)
+}
 partner_support_confirmed_analysis_df <- function(KnookReqdf){
   partners_list_not_split <- list(KnookReqdf$ip_d_ps_that_have_indicated_confirmed_support)
   partners_list_not_split <- partners_list_not_split[[1]]
@@ -294,6 +332,7 @@ partner_support_indicative_analysis_table <- function(KnookReqdf){
   partner_support_table <- data_frame(partner_names_list, partner_num_req_supported_list, partner_percent_req_supported_list)
   return(partner_support_table)
 }
+
 filter_by_date_df <- function(KnookReqdf, date, after = TRUE){
   if (after == TRUE){
     new_df_by_date <- KnookReqdf %>%
@@ -334,8 +373,5 @@ subcategories_analysis_df <- function(categorisedKnookReqdf){
 }
 
 #Create an xfilepath for the relevant excel file to be used
-xlfilepath_May_2023 <- "/Users/blancarincondearellano/Downloads/NDC_Partnership_Data-2023-05-05_1041.xlsx"
-AllReqdf <- read_knook_requests(xlfilepath_May_2023)
-
-
-
+xlfilepath_Aug_2023 <- "/Users/blancarincondearellano/Downloads/NDC_Partnership_Data-2023-08-16_1752.xlsx"
+AllFinReqdf <- read_knook_requests(xlfilepath_Aug_2023)
